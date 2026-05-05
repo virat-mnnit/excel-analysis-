@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Excel Intelligence Chatbot — Analyze your Excel data using natural language powered by AI">
+  <title>Excel Intelligence — AI Data Analyst</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">📊</div>
+        <div>
+          <h1>Excel Intelligence</h1>
+          <p>AI-Powered Data Analyst</p>
+        </div>
+      </div>
+
+      <!-- API Key Section -->
+      <div class="section-label">🔑 API Configuration</div>
+      <div class="input-group">
+        <label for="apiKey">OpenAI API Key</label>
+        <input type="password" id="apiKey" placeholder="Enter your OpenAI API key...">
+      </div>
+      <div class="input-group">
+        <label for="modelSelect">Model</label>
+        <select id="modelSelect">
+          <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cheap)</option>
+          <option value="gpt-4o">GPT-4o (Powerful)</option>
+          <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+          <option value="gpt-4.1-nano">GPT-4.1 Nano (Fastest)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="saveKeyBtn" onclick="saveApiKey()">
+        <span>🔒</span> Save API Key
+      </button>
+
+      <!-- Upload Section -->
+      <div class="section-label">📁 Data Upload</div>
+      <div class="upload-zone" id="uploadZone">
+        <div class="icon">⬆️</div>
+        <p>Drop your file here or click to browse</p>
+        <div class="formats">.xlsx, .xls, .csv supported</div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      </div>
+
+      <!-- File Info -->
+      <div class="file-info" id="fileInfo">
+        <div class="file-name" id="fileName">📄 No file loaded</div>
+        <div class="file-stats">
+          <div class="stat">Rows <span id="rowCount">-</span></div>
+          <div class="stat">Columns <span id="colCount">-</span></div>
+          <div class="stat">Size <span id="fileSize">-</span></div>
+          <div class="stat">Table <span id="tableName">-</span></div>
+        </div>
+        <div class="schema-cols" id="schemaCols"></div>
+      </div>
+    </aside>
+
+    <!-- Main Chat -->
+    <main class="main">
+      <div class="chat-header">
+        <div style="display:flex;align-items:center;">
+          <span class="status-dot" id="statusDot"></span>
+          <h2 id="headerStatus">Not Connected</h2>
+        </div>
+        <button class="btn btn-outline" onclick="clearChat()" style="font-size:12px;">🗑️ Clear Chat</button>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="welcome" id="welcomeScreen">
+          <div class="icon-big">🤖</div>
+          <h2>Excel Intelligence Chatbot</h2>
+          <p>Upload an Excel or CSV file, then ask questions in plain English. I'll analyze your data, create charts, make projections, and provide insights.</p>
+          <div class="quick-actions">
+            <div class="quick-action" onclick="quickAsk('What is the total and average of all numeric columns?')">
+              <span class="qa-icon">📊</span> Summarize all numeric data
+            </div>
+            <div class="quick-action" onclick="quickAsk('Show me a bar chart of the top 10 entries')">
+              <span class="qa-icon">📈</span> Create a bar chart
+            </div>
+            <div class="quick-action" onclick="quickAsk('What trends do you see and what will the next 6 periods look like?')">
+              <span class="qa-icon">🔮</span> Predict future trends
+            </div>
+            <div class="quick-action" onclick="quickAsk('What suggestions do you have to improve the numbers?')">
+              <span class="qa-icon">💡</span> Get optimization tips
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <div class="chat-input-wrap">
+          <input type="text" id="chatInput" placeholder="Ask anything about your data..." onkeydown="if(event.key==='Enter')sendMessage()" disabled>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>➤</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
