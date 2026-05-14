@@ -9,7 +9,3 @@ services:
         value: "3.11.0"
       - key: PYTHONIOENCODING
         value: "utf-8"
-      - key: LANG
-        value: "en_US.UTF-8"
-      - key: LC_ALL
-        value: "en_US.UTF-8"
