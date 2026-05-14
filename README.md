@@ -1,66 +1,304 @@
-# 📊 Excel Intelligence Chatbot
+# Excel Intelligence — AI Data Analysis Platform
 
-> **AI-Powered Excel/CSV Analyst** — Upload a spreadsheet, ask questions in plain English, and get instant answers, charts, forecasts & optimization tips.
-
-![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?logo=openai&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+An advanced AI-powered data analysis platform built with FastAPI and OpenAI. Upload any Excel/CSV file and interact through natural language — ask questions, generate charts, detect outliers, run forecasts, and more. The system intelligently classifies your intent and routes it through specialized handlers for maximum accuracy.
 
 ---
 
-## ✨ Features
+## System Architecture
 
-| Feature | Description |
-|---------|-------------|
-| 💬 **Natural Language Queries** | Ask questions like *"What is the total sales?"* — the AI converts it to SQL, runs it, and replies in plain English |
-| 📈 **Chart Generation** | Request bar, line, pie, or scatter charts between any columns |
-| 🔮 **Forecasting / Projections** | Predict future trends using linear regression or moving averages |
-| 💡 **Smart Suggestions** | Get 3–5 actionable, data-specific optimization recommendations |
-| 🔒 **SQL Safety** | Only SELECT queries allowed — all input is sanitized against injection |
+### High-Level Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        FRONTEND (Browser)                          │
+│  ┌──────────┐  ┌──────────────┐  ┌──────────┐  ┌───────────────┐  │
+│  │ Chat UI  │  │ File Upload  │  │  Theme   │  │ Sample Chips  │  │
+│  │ (app.js) │  │   (.xlsx)    │  │  Toggle  │  │  (category)   │  │
+│  └────┬─────┘  └──────┬───────┘  └──────────┘  └───────────────┘  │
+│       │               │                                            │
+│       │  POST /api/chat          POST /api/upload                  │
+└───────┼───────────────┼────────────────────────────────────────────┘
+        │               │
+        ▼               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     BACKEND (FastAPI — main.py)                    │
+│                                                                     │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │              STAGE 1: GATEWAY CLASSIFIER                      │ │
+│  │     Lightweight LLM call (~100 tokens) — intent only          │ │
+│  │                                                                │ │
+│  │   User Query ──▶ LLM classifies ──▶ Returns category JSON    │ │
+│  │                     {"category": "DATA_QUERY"}                │ │
+│  └───────────────────────────┬────────────────────────────────────┘ │
+│                              │                                      │
+│                   ┌──────────┴──────────┐                          │
+│                   │   Intent Router     │                          │
+│                   └──────────┬──────────┘                          │
+│          ┌───────┬───────┬───┴────┬────────┬────────┬──────┐      │
+│          ▼       ▼       ▼        ▼        ▼        ▼      ▼      │
+│   ┌──────────┐┌────┐┌───────┐┌────────┐┌───────┐┌─────┐┌─────┐  │
+│   │DATA_QUERY││CHAT││ CHART ││EXPLAIN ││OUTLIER││T.S. ││CORR.│  │
+│   └────┬─────┘└──┬─┘└───┬───┘└────┬───┘└───┬───┘└──┬──┘└──┬──┘  │
+│        │         │      │         │        │       │      │      │
+│  ┌─────┴──────────┴──────┴─────────┴────────┴───────┴──────┴───┐  │
+│  │                   STAGE 2: SPECIALIZED HANDLERS              │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Stage 1 — Gateway Classifier
+
+The gateway is a **tiny, zero-waste LLM call** that does ONE thing: classify the user's intent into a category. It uses ~100 tokens and returns a single JSON object.
+
+```
+Input:  "Which hostel has the highest average CPI?"
+Output: {"category": "DATA_QUERY"}
+
+Input:  "Draw a pie chart of hostel distribution"
+Output: {"category": "CHART"}
+
+Input:  "Is the CPI data stationary?"
+Output: {"category": "TIME_SERIES"}
+
+Input:  "Hello, how are you?"
+Output: {"category": "GENERAL_CHAT"}
+```
+
+**Priority rules** are baked into the classifier prompt to prevent misrouting:
+1. Statistical keywords ("stationary", "forecast", "predict") → `TIME_SERIES`
+2. Any question answerable with SQL (GROUP BY, COUNT, AVG, compare) → `DATA_QUERY`
+3. Only use CORRELATION/OUTLIER/SUGGESTION when user explicitly says those words
+4. Visual words ("chart", "plot", "visualize", "box plot") → `CHART`
+
+### Stage 2 — Specialized Handlers
+
+Each intent category has its own **dedicated handler** with a task-specific LLM prompt, preventing the confusion of a single monolithic prompt.
 
 ---
 
-## 🏗️ Architecture
+### Intent Processing Pipelines
+
+#### `DATA_QUERY` — The SQL Pipeline (Core)
+
+This is the primary pipeline, preserved from the original design:
 
 ```
-User ──▶ Chat UI (HTML/JS) ──▶ FastAPI Backend
-                                    │
-                        ┌───────────┼───────────┐
-                        ▼           ▼           ▼
-                   OpenAI API   SQLite DB   Matplotlib
-                  (GPT-4o-mini)  (pandas)   (Charts)
+User Question
+     │
+     ▼
+┌─────────────────────────┐
+│  SQL Prompt (dedicated)  │  LLM generates SELECT query
+│  - SQLite syntax rules   │  with column awareness
+│  - No STDDEV/VARIANCE    │
+└────────────┬────────────┘
+             ▼
+┌─────────────────────────┐
+│  SQL Sanitizer           │  Blocks DROP/DELETE/INSERT
+│  (sql_executor.py)       │  Prevents SQL injection
+└────────────┬────────────┘
+             ▼
+┌─────────────────────────┐
+│  SQLite Execution        │  Runs against in-memory DB
+│  (data_service.py)       │  loaded from uploaded file
+└────────────┬────────────┘
+             │
+             ├── Success ──▶ NLP Prompt ──▶ Natural Language Answer
+             │
+             └── Failure ──▶ Pandas Fallback (STDDEV, VARIANCE, MEDIAN)
+                             Computes stats directly via df.std(), df.var()
 ```
 
-### Project Structure
+**Pandas Fallback**: SQLite doesn't support `STDDEV()`, `VARIANCE()`, `MEDIAN()`, or complex `UNION ALL` with `ORDER BY`. When SQL execution fails with these errors, the system automatically falls back to computing the result using pandas and sends it through the NLP prompt.
+
+#### `CHART` — Visualization Pipeline
 
 ```
-excel-analysis/
-├── backend/
-│   ├── main.py                # FastAPI app & routes
-│   ├── llm_service.py         # OpenAI integration & prompts
-│   ├── data_service.py        # File parsing, schema inference, SQLite
-│   ├── sql_executor.py        # SQL sanitization & execution
-│   ├── chart_service.py       # Chart rendering (matplotlib)
-│   ├── projection_service.py  # Forecasting engine (scikit-learn)
-│   └── requirements.txt       # Python dependencies
-├── frontend/
-│   ├── index.html             # Chat UI
-│   ├── style.css              # Dark-themed premium styling
-│   └── app.js                 # Frontend logic
-├── .gitignore
-└── README.md
+User Request: "Bar chart of students per hostel"
+     │
+     ▼
+┌──────────────────────────────┐
+│  Chart Config Prompt          │  LLM extracts:
+│  - chart_type: "bar"          │  - x column, y column(s)
+│  - x: "alloted_hostel"        │  - __COUNT__ signal for aggregation
+│  - y: ["__COUNT__"]           │  - title
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│  Smart Aggregation Engine     │
+│  (main.py → _handle_chart)   │
+│                               │
+│  • __COUNT__ → value_counts() │  Groups by x, counts rows
+│  • ID columns detected →     │  registration_no never summed
+│    auto-fallback to count     │
+│  • Categorical x + numeric y  │  Groups by x, takes mean of y
+│  • Caps at 20 data points     │
+└──────────────┬───────────────┘
+               ▼
+┌──────────────────────────────┐
+│  Chart Renderer               │  matplotlib → base64 PNG
+│  (chart_service.py)           │
+│                               │
+│  Premium styling:             │
+│  - Dark/light theme aware     │
+│  - Curated HSL color palette  │
+│  - Value labels, trend lines  │
+│  - Grouped box plots          │
+└──────────────────────────────┘
+```
+
+**Supported Chart Types:**
+
+| Type | Trigger Words | Special Behavior |
+|------|--------------|------------------|
+| `bar` | "bar chart", "compare" | Auto-aggregates categorical x |
+| `line` | "line chart", "trend" | Connects points, fills area |
+| `pie` | "pie chart", "proportion" | Always aggregates by count |
+| `scatter` | "scatter plot" | Adds trend line |
+| `histogram` | "histogram", "distribution" | KDE overlay curve |
+| `box` | "box plot", "spread" | Grouped by x_col when categorical |
+| `heatmap` | "heatmap" | Correlation matrix |
+
+#### `TIME_SERIES` — Forecasting Pipeline
+
+```
+User: "Is the CPI data stationary?" / "Forecast next 10 values"
+     │
+     ▼
+┌─────────────────────────────┐
+│  Time-Series Config Prompt   │  LLM identifies:
+│                              │  - date_column
+│                              │  - value_column
+│                              │  - forecast periods
+└──────────────┬──────────────┘
+               ▼
+┌─────────────────────────────┐
+│  Auto-Detection Fallback     │  If LLM can't identify columns:
+│  - Scans for 'date'/'time'  │  - Checks parseable datetime cols
+│  - Picks first numeric col  │  - Falls back to index-based series
+└──────────────┬──────────────┘
+               ▼
+┌─────────────────────────────┐
+│  Analytics Engine            │  ADF Stationarity Test
+│  (analytics_service.py)      │  ARIMA(p,d,q) Fitting
+│                              │  Trend Detection (linear)
+│                              │  Rolling Statistics
+│                              │  Future Forecasting
+└──────────────┬──────────────┘
+               ▼
+┌─────────────────────────────┐
+│  Time-Series Chart           │  Historical + Forecast
+│  (chart_service.py)          │  with confidence regions
+└─────────────────────────────┘
+```
+
+#### `EXPLAIN` / `CORRELATION` / `OUTLIER`
+
+```
+EXPLAIN ──▶ analytics_service.explain_dataset()
+            Full dataset profile: shape, types, nulls, duplicates,
+            distributions, memory usage ──▶ LLM explanation
+
+CORRELATION ──▶ analytics_service.compute_correlations()
+                Pearson correlation matrix ──▶ Heatmap chart
+                ──▶ LLM summary (3-5 bullet points)
+
+OUTLIER ──▶ analytics_service.detect_outliers(method="iqr")
+            IQR-based detection per numeric column
+            ──▶ Box plot chart ──▶ LLM summary
+```
+
+#### `GENERAL_CHAT`
+
+```
+User: "Hello" / "What is machine learning?"
+     │
+     ▼
+  LLM with conversational prompt (no data context needed)
+     │
+     ▼
+  Text response — works even without any file uploaded
 ```
 
 ---
 
-## 🚀 Getting Started
+### Data Flow — End to End
+
+```
+┌──────────┐     ┌──────────────┐     ┌───────────────┐
+│  Upload  │────▶│ pandas reads │────▶│ SQLite DB     │
+│  .xlsx   │     │ into DataFrame│    │ (in-memory)   │
+└──────────┘     └──────┬───────┘     └───────┬───────┘
+                        │                     │
+                        ▼                     ▼
+                  Schema extracted      SQL queries run
+                  (column names,        against this DB
+                   types, sample)
+                        │
+                        ▼
+                  Sent to LLM with
+                  every classified
+                  request for context
+```
+
+**Key design decisions:**
+- DataFrame is kept in memory alongside SQLite for **dual access** — SQL for structured queries, pandas for statistical operations SQLite can't handle
+- Schema string (column names + types) is attached to every LLM call so it always knows what columns exist
+- File is processed once at upload, then all subsequent queries are instant
+
+---
+
+## Features
+
+### Core Analysis
+- **SQL-to-NLP Pipeline** — Ask questions in plain English, get SQL-powered answers with natural language explanations
+- **Smart Intent Detection** — Gateway classifier routes queries to the right handler automatically
+- **Pandas Fallback** — Statistical functions unsupported by SQLite (STDDEV, VARIANCE, MEDIAN) computed via pandas
+- **General Conversation** — Chat naturally even without data loaded
+
+### Visualization
+- **7 Chart Types** — Bar, Line, Pie, Scatter, Histogram, Box Plot, Heatmap
+- **Natural Language Charts** — Say "line chart of sales vs month" and it works
+- **Smart Aggregation** — Automatically groups/counts data for pie/bar charts instead of plotting raw rows
+- **Grouped Box Plots** — "Box plot of CPI by hostel" creates per-group comparison
+- **Theme-Aware Rendering** — Charts adapt to dark/light mode
+- **ID Column Detection** — Columns like registration_no are never summed/averaged, auto-falls back to counting
+
+### Advanced Analytics
+- **Dataset Explanation** — Full profiling: data types, distributions, nulls, duplicates
+- **Correlation Analysis** — Pearson correlation matrix with heatmap visualization
+- **Outlier Detection** — IQR and Z-score methods with box plot visualization
+- **Time-Series Analysis** — ADF stationarity testing + ARIMA-based forecasting
+- **Projections** — Linear regression-based numeric predictions
+
+### Interface
+- **Dark/Light Mode** — Toggle between themes (persisted in localStorage)
+- **Sample Question Chips** — Categorized quick-start prompts
+- **Responsive Design** — Works on desktop and mobile
+- **ChatGPT-style UI** — Professional, clean, muted color palette
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Backend** | Python, FastAPI, Uvicorn | API server, request handling |
+| **Database** | SQLite (in-memory) | SQL query execution on uploaded data |
+| **LLM** | OpenAI API (GPT-4o / Grok) | Intent classification, SQL generation, NLP responses |
+| **Data** | pandas, numpy | DataFrame operations, statistical fallback |
+| **Statistics** | scipy, statsmodels | ADF test, ARIMA, KDE, linear regression |
+| **ML** | scikit-learn | Linear regression for projections |
+| **Charts** | matplotlib | All chart rendering, base64 export |
+| **Frontend** | Vanilla HTML/CSS/JS | ChatGPT-inspired UI, dark/light themes |
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- **Python 3.9+** installed ([Download](https://www.python.org/downloads/))
-- **OpenAI API Key** ([Get one here](https://platform.openai.com/api-keys))
-- **Git** (to clone the repo)
+- **Python 3.9+** ([Download](https://www.python.org/downloads/))
+- **OpenAI-compatible API Key** (OpenAI, xAI Grok, etc.)
 
 ### 1. Clone the Repository
 
@@ -72,125 +310,109 @@ cd excel-analysis-
 ### 2. Install Dependencies
 
 ```bash
-pip install -r backend/requirements.txt
+cd backend
+pip install -r requirements.txt
 ```
-
-This installs:
-| Package | Purpose |
-|---------|---------|
-| `fastapi` + `uvicorn` | Web server |
-| `pandas` + `openpyxl` | Excel/CSV parsing |
-| `sqlalchemy` | Database ORM |
-| `openai` | GPT API client |
-| `matplotlib` | Chart generation |
-| `scikit-learn` + `numpy` | Forecasting (linear regression) |
-| `python-multipart` | File upload handling |
 
 ### 3. Run the Server
 
 ```bash
-cd backend
 python main.py
 ```
 
-The server starts at **http://localhost:8000**
+### 4. Open in Browser
 
-### 4. Use the App
+Navigate to [http://localhost:8000](http://localhost:8000)
 
-1. Open **http://localhost:8000** in your browser
-2. Enter your **OpenAI API key** in the sidebar and click **Save API Key**
-3. Upload an `.xlsx`, `.xls`, or `.csv` file
-4. Start asking questions!
+### 5. Configure & Use
+
+1. Enter your API key in the sidebar
+2. Upload an Excel/CSV file
+3. Ask questions in plain English
 
 ---
 
-## 💬 Example Questions
-
-Once your file is loaded, try asking:
+## Project Structure
 
 ```
-📊 "What is the total and average of all numeric columns?"
-📈 "Show me a bar chart of sales vs month"
-🔍 "How many students scored above 80?"
-🔮 "Predict the next 6 months of revenue"
-💡 "What suggestions do you have to improve the numbers?"
-📉 "Show a pie chart of category distribution"
-🏆 "Which product has the highest sales?"
+excel-analysis/
+├── backend/
+│   ├── main.py                # FastAPI app — gateway routing + intent handlers
+│   ├── llm_service.py         # Gateway classifier + 9 specialized prompts
+│   ├── data_service.py        # DataFrame management & SQLite engine
+│   ├── sql_executor.py        # SQL sanitization, execution & formatting
+│   ├── chart_service.py       # 7 chart types + heatmap + time-series charts
+│   ├── analytics_service.py   # Correlation, outlier, time-series (ARIMA)
+│   ├── projection_service.py  # Linear regression projections
+│   └── requirements.txt       # Python dependencies
+├── frontend/
+│   ├── index.html             # Main HTML — sidebar + chat layout
+│   ├── style.css              # CSS with dark/light theme variables
+│   └── app.js                 # Chat logic, file upload, theme toggle
+└── README.md
 ```
 
 ---
 
-## ⚙️ Configuration
+## API Endpoints
 
-### Supported Models
-
-| Model | Speed | Cost | Best For |
-|-------|-------|------|----------|
-| `gpt-4o-mini` | ⚡ Fast | 💰 Cheap | Default — great for most queries |
-| `gpt-4o` | 🔄 Medium | 💰💰 Moderate | Complex analysis |
-| `gpt-4.1-mini` | ⚡ Fast | 💰 Cheap | Latest mini model |
-| `gpt-4.1-nano` | ⚡⚡ Fastest | 💰 Cheapest | Simple queries |
-
-Select your preferred model from the dropdown in the sidebar.
-
-### Supported File Formats
-
-- `.xlsx` (Excel 2007+)
-- `.xls` (Legacy Excel)
-- `.csv` (Comma-separated values)
-
-**Max recommended file size:** 50 MB
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Serve frontend |
+| `POST` | `/api/set-key` | Set API key, base URL, and model |
+| `POST` | `/api/upload` | Upload Excel/CSV → loads into SQLite |
+| `POST` | `/api/chat` | Main chat endpoint (gateway classifier) |
+| `GET` | `/api/schema` | Get current data schema + sample |
 
 ---
 
-## 🔒 Security
+## Supported Intent Categories
 
-- **SELECT-only SQL** — INSERT, UPDATE, DELETE, DROP, and other DML/DDL statements are blocked
-- **Keyword blacklist** — 15+ dangerous SQL keywords are filtered
-- **Multi-statement prevention** — Semicolons outside strings are rejected
-- **API keys stay local** — Your OpenAI key is only sent to OpenAI's servers, never stored on disk
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **LLM** | OpenAI GPT-4o-mini (via `openai` SDK) |
-| **Backend** | Python, FastAPI, Uvicorn |
-| **Data Processing** | pandas, SQLAlchemy, SQLite (in-memory) |
-| **Chart Rendering** | matplotlib |
-| **Forecasting** | scikit-learn (LinearRegression), numpy |
-| **Frontend** | Vanilla HTML, CSS, JavaScript |
+| Intent | Trigger | Example | Handler |
+|--------|---------|---------|---------|
+| `GENERAL_CHAT` | No data keywords | "Hello", "What is AI?" | Direct LLM chat |
+| `DATA_QUERY` | SQL-answerable | "Average CPI per hostel" | SQL → Execute → NLP |
+| `CHART` | Visual words | "Bar chart of X" | LLM config → Render |
+| `EXPLAIN` | "explain", "describe" | "What is this data about?" | Dataset profiling |
+| `CORRELATION` | "correlation" | "Show correlations" | Pearson matrix + heatmap |
+| `OUTLIER` | "outlier", "anomaly" | "Find outliers in CPI" | IQR detection + box plot |
+| `TIME_SERIES` | "stationary", "forecast" | "Is CPI stationary?" | ADF + ARIMA |
+| `PROJECTION` | "project" | "Project next 6 values" | Linear regression |
+| `SUGGESTION` | "suggestions" | "What should I analyze?" | LLM insights |
 
 ---
 
-## 🐛 Troubleshooting
+## Error Handling & Fallbacks
 
-| Issue | Solution |
-|-------|----------|
-| `ModuleNotFoundError` | Run `pip install -r backend/requirements.txt` |
-| `Port 8000 already in use` | Kill the process or change port in `main.py` |
-| `API key error / 401` | Verify your OpenAI key at [platform.openai.com](https://platform.openai.com) |
-| `"Not a zip file"` on upload | Your `.xlsx` file may be corrupted — try re-saving it from Excel |
-| Large file slow to load | Files > 50MB use chunked loading — give it a moment |
-
----
-
-## 📄 License
-
-This project is open source under the [MIT License](LICENSE).
+| Error | Cause | Fallback |
+|-------|-------|----------|
+| `no such function: STDDEV` | SQLite limitation | Pandas `df.std()` |
+| `no such function: VARIANCE` | SQLite limitation | Pandas `df.var()` |
+| `ORDER BY before UNION ALL` | Invalid SQL syntax | Pandas `nlargest` + `nsmallest` |
+| Non-JSON LLM response | LLM hallucination | Regex extraction of JSON |
+| `numpy.bool` serialization | NumPy types in JSON | Explicit `bool()`, `float()` casts |
+| 749-row pie chart | No aggregation | Auto `value_counts()` |
 
 ---
 
-## 🤝 Contributing
+## Dependencies
 
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+```
+fastapi
+uvicorn
+python-multipart
+pandas
+openpyxl
+openai
+matplotlib
+numpy
+scipy
+statsmodels
+scikit-learn
+```
 
 ---
 
-**Built with ❤️ by [virat-mnnit](https://github.com/virat-mnnit)**
+## License
+
+MIT

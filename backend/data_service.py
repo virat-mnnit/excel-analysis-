@@ -119,8 +119,16 @@ class DataService:
         # Generate column mapping for display
         column_mapping = {orig: san for orig, san in zip(original_cols, sanitized_cols)}
 
-        # Sample data (first 5 rows)
-        sample = self.dataframe.head(5).to_dict(orient='records')
+        # Sample data (first 5 rows) — sanitize NaN/Inf for JSON
+        import math
+        sample_df = self.dataframe.head(5).copy()
+        sample_df = sample_df.where(sample_df.notna(), None)
+        sample = sample_df.to_dict(orient='records')
+        # Replace any remaining Inf/-Inf with None
+        for row in sample:
+            for k, v in row.items():
+                if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                    row[k] = None
 
         return {
             "file_name": file_name,
