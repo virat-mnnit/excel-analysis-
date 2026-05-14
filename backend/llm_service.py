@@ -144,6 +144,13 @@ class LLMService:
         self.client = OpenAI(api_key=api_key)
         self.model = model
 
+    @staticmethod
+    def _safe_text(text: str) -> str:
+        """Strip non-ASCII characters (emojis etc.) to prevent encoding errors on servers."""
+        if not text:
+            return text
+        return text.encode('ascii', errors='ignore').decode('ascii')
+
     # ─── GATEWAY: Stage 1 ───
     def classify_intent(self, user_message: str, schema_string: str = "",
                         table_name: str = "", has_data: bool = True) -> Dict[str, Any]:
@@ -162,7 +169,7 @@ class LLMService:
                 ],
                 temperature=0.0, max_tokens=100
             )
-            parsed = self._extract_json(resp.choices[0].message.content.strip())
+            parsed = self._extract_json(self._safe_text(resp.choices[0].message.content.strip()))
             if parsed and "category" in parsed:
                 return {"intent": parsed["category"], "payload": {}}
             return {"intent": "GENERAL_CHAT", "payload": {}}
@@ -183,7 +190,7 @@ class LLMService:
                 ],
                 temperature=0.1, max_tokens=500
             )
-            parsed = self._extract_json(resp.choices[0].message.content.strip())
+            parsed = self._extract_json(self._safe_text(resp.choices[0].message.content.strip()))
             if parsed and "sql" in parsed:
                 return parsed["sql"]
             return ""
@@ -206,7 +213,7 @@ class LLMService:
                 ],
                 temperature=0.1, max_tokens=300
             )
-            parsed = self._extract_json(resp.choices[0].message.content.strip())
+            parsed = self._extract_json(self._safe_text(resp.choices[0].message.content.strip()))
             if parsed:
                 return parsed
             return {"chart_type": "bar", "x": "", "y": [], "title": "Chart"}
@@ -227,7 +234,7 @@ class LLMService:
                 ],
                 temperature=0.1, max_tokens=200
             )
-            parsed = self._extract_json(resp.choices[0].message.content.strip())
+            parsed = self._extract_json(self._safe_text(resp.choices[0].message.content.strip()))
             return parsed or {"date_column": "", "value_column": "", "periods": 12}
         except:
             return {"date_column": "", "value_column": "", "periods": 12}
@@ -243,7 +250,7 @@ class LLMService:
                 ],
                 temperature=0.5, max_tokens=500
             )
-            return resp.choices[0].message.content.strip()
+            return self._safe_text(resp.choices[0].message.content.strip())
         except Exception as e:
             return f"I'm having trouble responding right now: {str(e)}"
 
@@ -259,7 +266,7 @@ class LLMService:
                 ],
                 temperature=0.3, max_tokens=1000
             )
-            return resp.choices[0].message.content.strip()
+            return self._safe_text(resp.choices[0].message.content.strip())
         except Exception as e:
             return f"Found data but had trouble formatting: {str(e)}"
 
@@ -275,7 +282,7 @@ class LLMService:
                 ],
                 temperature=0.3, max_tokens=1500
             )
-            return resp.choices[0].message.content.strip()
+            return self._safe_text(resp.choices[0].message.content.strip())
         except Exception as e:
             return f"Dataset has {overview['shape']['rows']} rows and {overview['shape']['columns']} columns."
 
@@ -290,7 +297,7 @@ class LLMService:
                 ],
                 temperature=0.3, max_tokens=1000
             )
-            return resp.choices[0].message.content.strip()
+            return self._safe_text(resp.choices[0].message.content.strip())
         except Exception as e:
             return f"Correlation analysis completed. Error: {str(e)}"
 
@@ -305,7 +312,7 @@ class LLMService:
                 ],
                 temperature=0.3, max_tokens=1000
             )
-            return resp.choices[0].message.content.strip()
+            return self._safe_text(resp.choices[0].message.content.strip())
         except Exception as e:
             return f"Outlier detection completed. Error: {str(e)}"
 
@@ -321,7 +328,7 @@ class LLMService:
                 ],
                 temperature=0.3, max_tokens=1200
             )
-            return resp.choices[0].message.content.strip()
+            return self._safe_text(resp.choices[0].message.content.strip())
         except Exception as e:
             return f"Time-series analysis completed. Error: {str(e)}"
 
@@ -333,7 +340,7 @@ class LLMService:
                 messages=[{"role": "system", "content": "You are a data analyst."}, {"role": "user", "content": prompt}],
                 temperature=0.3, max_tokens=500
             )
-            return resp.choices[0].message.content.strip()
+            return self._safe_text(resp.choices[0].message.content.strip())
         except Exception as e:
             return f"Projection for {column}: {projected}"
 
@@ -345,7 +352,7 @@ class LLMService:
                 messages=[{"role": "system", "content": "You are a data analyst. Respond with JSON array only."}, {"role": "user", "content": prompt}],
                 temperature=0.4, max_tokens=1000
             )
-            parsed = self._extract_json(resp.choices[0].message.content.strip())
+            parsed = self._extract_json(self._safe_text(resp.choices[0].message.content.strip()))
             return parsed if isinstance(parsed, list) else ["Unable to generate suggestions."]
         except Exception as e:
             return [f"Error: {str(e)}"]

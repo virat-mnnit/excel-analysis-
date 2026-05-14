@@ -1,7 +1,14 @@
 """
-FastAPI Main Application — Gateway architecture for intent routing.
-User Query → Gateway Classifier → Specialized Handler → Response
+FastAPI Main Application -- Gateway architecture for intent routing.
+User Query -> Gateway Classifier -> Specialized Handler -> Response
 """
+import sys, io
+# Force UTF-8 encoding for stdout/stderr (Render uses ASCII locale by default)
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 import os, json, shutil, traceback
 import pandas as pd
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
