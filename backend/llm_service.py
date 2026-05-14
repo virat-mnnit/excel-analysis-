@@ -1,7 +1,7 @@
 """
 LLM Service — Gateway architecture with intent classification + specialized handlers.
 
-Flow: User Query → Gateway Classifier → Route to specialized prompt → Response
+Flow: User Query  ->  Gateway Classifier  ->  Route to specialized prompt  ->  Response
 """
 import json, re
 from typing import Dict, Any, Optional, List
@@ -28,11 +28,11 @@ CATEGORIES:
 - SUGGESTION: User EXPLICITLY asks for "suggestions" or "what should I analyze". Examples: "give me suggestions"
 
 PRIORITY RULES (follow strictly):
-1. If the user says "stationary", "stationarity", "forecast", "predict future" → TIME_SERIES
-2. If the question can be answered with a SQL GROUP BY, COUNT, AVG, MAX, MIN → DATA_QUERY
+1. If the user says "stationary", "stationarity", "forecast", "predict future"  ->  TIME_SERIES
+2. If the question can be answered with a SQL GROUP BY, COUNT, AVG, MAX, MIN  ->  DATA_QUERY
 3. Only use CORRELATION/OUTLIER/SUGGESTION if the user EXPLICITLY uses those exact words
-4. Questions like "which X is best", "compare X by Y", "standard deviation", "variance" → DATA_QUERY
-5. "show me a chart" or "visualize" or "box plot" → CHART. But "show me the data" → DATA_QUERY
+4. Questions like "which X is best", "compare X by Y", "standard deviation", "variance"  ->  DATA_QUERY
+5. "show me a chart" or "visualize" or "box plot"  ->  CHART. But "show me the data"  ->  DATA_QUERY
 
 Respond with ONLY: {{"category": "<CATEGORY>"}}"""
 
@@ -74,10 +74,10 @@ RULES:
 - Pick x and y columns from the schema. Use EXACT column names.
 - IMPORTANT: If the user wants to see "how many" or "count" or "number of" items per category:
   Set y to ["__COUNT__"] — this tells the system to count rows per x category.
-  Example: "bar chart of students per hostel" → x="alloted_hostel", y=["__COUNT__"], chart_type="bar"
-  Example: "pie chart of hostel distribution" → x="alloted_hostel", y=["__COUNT__"], chart_type="pie"
+  Example: "bar chart of students per hostel"  ->  x="alloted_hostel", y=["__COUNT__"], chart_type="bar"
+  Example: "pie chart of hostel distribution"  ->  x="alloted_hostel", y=["__COUNT__"], chart_type="pie"
 - If user wants averages/sums of a numeric column per category, use that numeric column as y.
-  Example: "average CPI per hostel" → x="alloted_hostel", y=["cpi"], chart_type="bar"
+  Example: "average CPI per hostel"  ->  x="alloted_hostel", y=["cpi"], chart_type="bar"
 - For scatter plots, both x and y should be numeric columns.
 - For histogram, set y to the numeric column to show distribution of.
 - Generate a descriptive title.
